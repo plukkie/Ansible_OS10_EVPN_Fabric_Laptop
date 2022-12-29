@@ -1,0 +1,50 @@
+---
+- hosts: leafs
+  connection: network_cli
+  gather_facts: false
+  collections:
+    - dellemc.os10
+
+  vars:
+    refevi: 999
+    leafcount: "{{ groups['leafs'] | length }}"
+    spinecount: "{{ groups['spines'] | length }}"
+
+  tasks: 
+
+   - name: Request EVI {{ refevi }} status...
+     vars:
+       ansible_connection: network_cli
+     any_errors_fatal: true
+     os10_command:
+       commands:
+         - show evpn evi {{ refevi }}
+
+     register: evi_log
+
+   - name: Request EVI {{ refevi }} mac count...
+     vars:
+       ansible_connection: network_cli
+     any_errors_fatal: true
+     os10_command:
+       commands:
+         - show evpn mac evi {{ refevi }} count | grep emote
+
+     register: evi_mac_count
+
+   - name: Closed Loop Verification - EVI status
+
+     debug:
+       msg: "Checked EVI status."
+     when: evi_log is search ("EVI.*up")
+     failed_when: evi_log is not search ("EVI.*up")
+
+   - name: Closed Loop Verification - EVI mac count
+
+     debug:
+       msg: "Checked EVI mac count."
+     when: evi_mac_count['stdout'][0].split(':')[1]|int >= leafcount|int-1
+     failed_when: evi_mac_count['stdout'][0].split(':')[1]|int < leafcount|int-1
+
+
+

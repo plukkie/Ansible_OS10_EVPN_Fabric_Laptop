@@ -1,0 +1,457 @@
+{% set conf = jsonobj %}
+{% set global = { } -%}
+{% set globalarray = [ ] %}
+{% set ptp = conf['fabric']['common']['interlinknet'].split('.') %}
+{% set ptpnet = ptp[0]+'.'+ptp[1]+'.'+ptp[2] %}
+{% set spinecount = conf['gns3']['nodesdata']['templates']['spine']['count']|int -%}
+{% set leafcount = conf['gns3']['nodesdata']['templates']['leaf']['count']|int -%}
+{% set btbarray = conf['fabric']['leaf']['btbiplink'].split('.') %}
+{% set L3vrf = conf['fabric']['common']['L3VRF'] %}
+{% set mgtvlan = conf['fabric']['common']['intmgtvlan'] %}
+{% set mgtmask = conf['fabric']['common']['ipv4mask'] %}
+{% set mgtnetarray = conf['fabric']['common']['intmgtnet'].split('.') %}
+{% set mgtnet = mgtnetarray[0]+'.'+mgtnetarray[1]+'.'+mgtnetarray[2] %}
+{% set mgtgw = conf['fabric']['common']['ipv4gw'] %}
+{% set bordercount = conf['gns3']['nodesdata']['templates']['border']['count']|int -%} 
+{% set borderiparray = conf['fabric']['common']['bordersubnet'].split('.') -%}
+{% set borderas = conf['fabric']['common']['borderas']|int -%}
+{% set bordernet = borderiparray[0]+'.'+borderiparray[1]+'.'+borderiparray[2] %}
+{% set slotsyntax = conf['fabric']['common']['slot_syntax'] %}
+{% set interlinkiparray = conf['fabric']['common']['interlinknet'].split('.') -%}
+{% set interlinknet = interlinkiparray[0]+'.'+interlinkiparray[1]+'.'+interlinkiparray[2] %}
+{% set vlticount = conf['gns3']['nodesdata']['templates']['leaf']['vlti']['count']|int -%} 
+{% set hostcount = conf['gns3']['nodesdata']['templates']['leaf']['hosts']['count']|int -%} 
+{% set ntplist = conf['fabric']['common']['ntp'] %}
+
+{% if 'leaf' in inventory_hostname|lower %}
+{% set role = 'leaf' %}
+{% set peerrole = 'spine' %}
+{% set nameprefix = conf['fabric'][role]['nameprefix'] %}
+{% set switchnr = inventory_hostname[nameprefix|length:]|int %}
+{% set peercount = spinecount %}
+{% set firstbgppeer = ptp[3]|int+1+(switchnr-1)*peercount*2 %}
+{% set firstpeerasnr = conf['fabric']['spine']['as']|int %}
+{% set firstpeerridarray = conf['fabric']['spine']['routerid'].split('.') %}
+{% set firstborderpeer = borderiparray[3]|int+1+(switchnr-1)*bordercount*2 %}
+{% elif 'spine' in inventory_hostname|lower %}
+{% set role = 'spine' %}
+{% set peerrole = 'spine' %}
+{% set nameprefix = conf['fabric'][role]['nameprefix'] %}
+{% set switchnr = inventory_hostname[nameprefix|length:]|int %}
+{% set peercount = leafcount %}
+{% set firstbgppeer = ptp[3]|int+(switchnr-1)*peercount*2 %}
+{% set firstpeerasnr = conf['fabric']['leaf']['as']|int %}
+{% set firstpeerridarray = conf['fabric']['leaf']['routerid'].split('.') %}
+{% endif %}
+
+{% if 'vtepip' in conf['fabric'][role] %}
+{% if conf['fabric'][role]['vtepip']|length > 7 %}
+{% if switchnr is even %}
+{% set vtep = switchnr-1 %}
+{% else %}
+{% set vtep = switchnr %}
+{% endif %}
+{% set vtepiparray = conf['fabric'][role]['vtepip'].split(".") -%}
+{% set vtepnet = vtepiparray[0]+'.'+vtepiparray[1]+'.'+vtepiparray[2]+'.' %}
+{% endif %}
+{% endif -%}
+
+{% set ridarray = conf['fabric'][role]['routerid'].split(".") -%}
+{% set rid = ridarray[0]+'.'+ridarray[1]+'.'+ridarray[2]+'.'+(ridarray[3]|int-1+switchnr)|string %}
+{% set startas = conf['fabric'][role]['as']|int %}
+{% set switchcount = conf['gns3']['nodesdata']['templates'][role]['count']|int %}
+{% set switchpairs = switchcount/2 %}
+{% for count in range(switchpairs|int) %}
+{% set pairnr = count+1 %}
+{% if pairnr*2 == switchnr -%}
+{% set as = startas+count %}
+{% set mclagpeerip = ridarray[0]+'.'+ridarray[1]+'.'+ridarray[2]+'.'+(ridarray[3]|int-1+switchnr-1)|string %}
+{% if vtepiparray is defined %}
+{% set vtepip = vtepiparray[3]|int+count %}
+{{ global.update ( { 'vtepip' : vtepip } ) -}}
+{% endif %}
+{{ global.update ({ 'as' : as, 'mclagpeer' : mclagpeerip }) -}}
+{% elif pairnr*2-1 == switchnr -%}
+{% if vtepiparray is defined %}
+{% set vtepip =  vtepiparray[3]|int+count %}
+{{ global.update ( { 'vtepip' : vtepip  } ) -}}
+{% endif %}
+{% set as = startas+count %}
+{% set mclagpeerip = ridarray[0]+'.'+ridarray[1]+'.'+ridarray[2]+'.'+(ridarray[3]|int-1+switchnr+1)|string %}
+{{ global.update ({ 'as' : as, 'mclagpeer' : mclagpeerip }) -}}
+{% endif -%}
+{% endfor %}
+
+{% if switchnr is not even %}
+{% set bgpbtbip = btbarray[0]+'.'+btbarray[1]+'.'+btbarray[2]+'.'+switchnr|string %}
+{% else %}
+{% set bgpbtbip = btbarray[0]+'.'+btbarray[1]+'.'+btbarray[2]+'.'+(switchnr-2)|string %}
+{% endif %}
+{% set vltiip = btbarray[0]+'.'+btbarray[1]+'.'+btbarray[2]+'.'+(switchnr-1)|string %}
+
+hostname: {{ inventory_hostname }}
+
+os10_bgp:
+  asn: {{ global.as }}
+  best_path:
+    as_path: multipath-relax
+  graceful_restart: true
+  maxpath_ebgp: 2
+  neighbor:
+  - adv_interval: 1
+    fall_over: present
+    name: spine-leaf
+    timer: 3 9
+    type: peergroup
+{% for cnt in range(peercount) %}
+{% set peerrid = firstpeerridarray[0]+'.'+firstpeerridarray[1]+'.'+firstpeerridarray[2]+'.'+(cnt+1)|string %}
+{% if cnt is even %}
+{% set peerasn = (firstpeerasnr + cnt/2)|int %}
+{% else %}
+{% set peerasn = (firstpeerasnr + cnt/2-0.5)|int %}
+{% endif %}
+  - address_family:
+    - type: ipv4
+{% if role == 'leaf' %}
+      allow_as_in: 1
+{% endif %}
+    admin: up
+    adv_interval: 1
+    fall_over: present
+    ip: {{ptpnet}}.{{firstbgppeer+2*cnt}}
+    name: {{ peerrole }} {{ cnt+1 }} Underlay
+    peergroup: spine-leaf
+    timer: 3 9
+    type: ipv4
+    remote_asn: {{ peerasn }}
+{% if role == 'spine' %}
+    sender_loop_detect: false
+{% endif %}
+  - address_family:
+    - activate: false
+      type: ipv4
+    - activate: true
+      type: l2vpn
+    admin: up
+    adv_interval: 1
+{% if role == 'leaf' %}
+    ebgp_multihop: 4
+{% endif %}
+    fall_over: present
+    ip: {{ peerrid }}
+    name: {{ peerrole }} {{ cnt+1 }} Overlay
+    peergroup: spine-leaf
+    remote_asn: {{ peerasn }}
+    send_community:
+    - state: present
+      type: extended
+    sender_loop_detect: false
+    src_loopback: 0
+    timer: 3 9
+    type: ipv4
+{% endfor %}
+  - admin: up
+    ip: {{ bgpbtbip }}
+    type: ipv4
+    remote_asn: {{ global.as }}
+  redistribute:
+  - address_type: ipv4
+    route_map_name: spine-leaf
+    route_type: connected
+  router-id: {{ rid }}
+{% if role == 'leaf' and switchnr <= 2 %}
+  vrf:
+    name: {{ L3vrf }}
+  vrfs:
+  - name: {{ L3vrf }}
+    neighbor:
+{% for cnt in range(bordercount) %}
+{% if cnt is even %}
+{% set peerasn = (borderas + cnt/2)|int %}
+{% else %}
+{% set peerasn = (borderas + cnt/2-0.5)|int %}
+{% endif %}
+    - address_family:
+      - type: ipv4
+      admin: up
+      ip: {{ bordernet }}.{{firstborderpeer+2*cnt}} 
+      remote_asn: {{ peerasn }} 
+      type: ipv4
+{% endfor %}
+    redistribute:
+    - address_type: ipv4
+      route_type: l2vpn
+    - address_type: ipv4
+      route_map_name: deny_v4_host_routes
+      route_type: l2vpn
+    - address_type: ipv4
+      route_type: connected
+{% endif %}
+
+{% set adapter = conf['gns3']['nodesdata']['templates'][role]['interlinks']['1st_adapter_number']|int %}
+{% set astep = conf['gns3']['nodesdata']['templates'][role]['interlinks']['adapterstep']|int %}
+{% set port = conf['gns3']['nodesdata']['templates'][role]['interlinks']['port']|int %}
+{% set pstep = conf['gns3']['nodesdata']['templates'][role]['interlinks']['portstep']|int %}
+{{ global.update ( { 'int' : adapter } ) -}}
+{{ global.update ( { 'intip' : interlinkiparray[3]|int + (switchnr-1)*2*peercount } ) -}}
+
+os10_interface:
+{% for x in range(peercount) %}
+  ethernet {{ slotsyntax }}/{{ global.int }}: 
+    admin: up
+    switchport: false
+{% if role == 'leaf' %}
+    desc: interlink to spine {{ x+1 }}
+{% else %}
+    desc: interlink to leaf {{ x+1 }}
+{% endif %}
+    mtu: 9216
+    ip_and_mask: {{ interlinknet }}.{{ global.intip }}/31
+{{ global.update ( { 'int' : global.int + astep } ) -}}
+{{ global.update ( { 'intip' : global.intip|int + 2 } ) -}}
+{% endfor -%}
+
+{% if bordercount > 0 and role == 'leaf' and switchnr <= 2 %}
+{% set adapter = conf['gns3']['nodesdata']['templates'][role]['borderlinks']['1st_adapter_number']|int %}
+{% set astep = conf['gns3']['nodesdata']['templates'][role]['borderlinks']['adapterstep']|int %}
+{% set port = conf['gns3']['nodesdata']['templates'][role]['borderlinks']['port']|int %}
+{% set pstep = conf['gns3']['nodesdata']['templates'][role]['borderlinks']['portstep']|int %}
+{{ global.update ( { 'int' : adapter } ) -}}
+{{ global.update ( { 'intip' : borderiparray[3]|int + (switchnr-1)*2*bordercount } ) -}}
+{% for x in range(bordercount) %}
+  ethernet {{ slotsyntax }}/{{ global.int }}:
+    admin: up
+    switchport: false
+    desc: link to border {{ x+1 }}
+    ip_and_mask: {{ bordernet }}.{{ global.intip }}/31
+    vrf: {{ L3vrf }} 
+{{ global.update ( { 'int' : global.int + astep } ) -}}
+{{ global.update ( { 'intip' : global.intip|int + 2 } ) -}}
+{% endfor %}
+{% endif -%}
+
+{% if role == 'leaf' and vlticount > 0 %}
+{% if switchnr is even %}
+{% set peerswitchnr = switchnr-1 %}
+{% else %}
+{% set peerswitchnr = switchnr+1 %}
+{% endif %}
+{% set adapter = conf['gns3']['nodesdata']['templates'][role]['vlti']['1st_adapter_number']|int %}
+{% set astep = conf['gns3']['nodesdata']['templates'][role]['vlti']['adapterstep']|int %}
+{% set port = conf['gns3']['nodesdata']['templates'][role]['vlti']['port']|int %}
+{% set pstep = conf['gns3']['nodesdata']['templates'][role]['vlti']['portstep']|int %}
+{% set vltirange = slotsyntax+'/'+adapter|string+'-'+slotsyntax+'/'+(vlticount-1+adapter)|string %}
+{{ global.update ( { 'int' : adapter } ) -}}
+{% for x in range(vlticount) %}
+  ethernet {{ slotsyntax }}/{{ global.int }}:
+    admin: up
+    switchport: false
+    desc: VLT-interlink to {{role}} {{peerswitchnr}}
+{{ global.update ( { 'int' : global.int + astep } ) -}}
+{% endfor %}
+{% endif -%}
+
+{% if role == 'leaf' %}
+  virtual-network {{ mgtvlan }}{{ mgtvlan }}:
+    vrf: {{ L3vrf }}
+    ip_and_mask: {{ mgtnet }}.{{ switchnr }}/{{ mgtmask }}
+    virtual_gateway_ip: "{{ mgtnet }}.{{ mgtgw }}"
+    admin: up
+    desc: "Fabric wide vxlan {{ mgtvlan }}{{ mgtvlan }}"
+{% endif %}
+  loopback 0:
+    admin: up
+    ip_and_mask: {{ rid }}/32
+{% if role == 'leaf' %}
+  loopback 1:
+    admin: up
+    ip_and_mask: {{ vtepnet }}{{ vtep }}
+{% endif -%}
+
+{% if role == 'leaf' and hostcount > 0 %}
+{% set adapter = conf['gns3']['nodesdata']['templates'][role]['hosts']['leaflinks']['1st_adapter_number']|int %}
+{% set astep = conf['gns3']['nodesdata']['templates'][role]['hosts']['leaflinks']['adapterstep']|int %}
+{% set port = conf['gns3']['nodesdata']['templates'][role]['hosts']['leaflinks']['port']|int %}
+{% set pstep = conf['gns3']['nodesdata']['templates'][role]['hosts']['leaflinks']['portstep']|int %}
+{{ global.update ( { 'int' : adapter } ) -}}
+{% for x in range(hostcount) %}
+  ethernet {{ slotsyntax }}/{{ global.int }}:
+    admin: up
+    desc: to host {{ x+1 }}
+    mtu: 9216
+    portmode: trunk
+    switchport: true
+{{ globalarray.append ( slotsyntax+'/'+global.int|string ) -}}
+{{ global.update ( { 'int' : global.int + astep } ) -}}
+{% endfor %}
+{% endif %}
+
+os10_lldp:
+  enable: true
+
+os10_ntp:
+  server:
+{{ global.update ( { 'cnt' : 0 } ) -}}
+{% for ip in ntplist %}
+  - ip: {{ ip }}
+{% if global.cnt == 0 %}
+    prefer: true
+{% endif %}
+{{ global.update ( { 'cnt' : global.cnt+1 } ) -}}
+{% endfor %}
+
+{% if role == 'leaf' %}
+os10_prefix_list:
+- entries:
+  - condition_list:
+    - condition: ge
+      prelen: 32
+    mask: '0'
+    net_num: 0.0.0.0
+    number: 10
+    permit: true
+    state: present
+  - condition_list:
+    - condition: ge
+      prelen: 31
+    mask: '0'
+    net_num: 0.0.0.0
+    number: 20
+    permit: true
+    state: present
+  name: deny_v4_host_routes
+  state: present
+  type: ipv4
+- entries:
+  - condition_list:
+    - condition: ge
+      prelen: '24'
+    mask: '8'
+    net_num: 10.0.0.0
+    number: 30
+    permit: true
+    state: present
+  - condition_list:
+    - condition: ge
+      prelen: '24'
+    mask: '16'
+    net_num: 192.168.0.0
+    number: 50
+    permit: true
+    state: present
+  name: spine-leaf
+  state: present
+  type: ipv4
+
+os10_route_map:
+  route_map:
+  - match:
+    - ip_type: ipv4
+      prefix_list: spine-leaf
+    name: spine-leaf
+    permit: true
+    seq_num: 10
+  - match:
+    - ip_type: ipv4
+      prefix_list: deny_v4_host_routes
+    name: deny_v4_host_routes
+    permit: true
+    seq_num: 10
+{% endif -%}
+
+{% if role == 'spine' %}
+os10_prefix_list:
+- entries:
+  - condition_list:
+    - condition: ge
+      prelen: '24'
+    mask: '8'
+    net_num: 10.0.0.0
+    number: 10
+    permit: true
+    state: present
+  - condition_list:
+    - condition: ge
+      prelen: '24'
+    mask: '16'
+    net_num: 192.168.0.0
+    number: 20
+    permit: true
+    state: present
+  name: spine-leaf
+  state: present
+  type: ipv4
+
+os10_route_map:
+  route_map:
+  - match:
+    - ip_type: ipv4
+      prefix_list: spine-leaf
+    name: spine-leaf
+    permit: true
+    seq_num: 10
+{% endif %}
+
+os10_system:
+  hostname: {{ inventory_hostname }} 
+
+{% if role == 'leaf' %}
+os10_vlan:
+  Vlan {{ mgtvlan }}:
+    description: "Cluster management"
+    ip_and_mask: null
+    state: present
+    untagged_members:
+{% for int in globalarray %}
+    - port: ethernet {{ int }}
+      state: present
+{% endfor %}
+  Vlan 4000:
+    description: iBGP_link
+    ip_and_mask: {{ vltiip }}/31
+    state: present
+
+os10_vlt:
+  discovery_intf: {{ vltirange }}
+  discovery_intf_state: present
+{% if switchnr < peerswitchnr %}
+  domain: {{ switchnr }}{{ peerswitchnr }}
+{% else %}
+  domain: {{ peerswitchnr }}{{ switchnr }}
+{% endif %}
+  peer_routing: true
+{% if switchnr is even %}
+{% if switchnr <= 10 %}
+  vlt_mac: 00:00:00:00:00:0{{ switchnr-1 }}
+{% else %}
+  vlt_mac: 00:00:00:00:00:{{ switchnr-1 }}
+{% endif %}
+{% else %}
+{% if switchnr < 10 %}
+  vlt_mac: 00:00:00:00:00:0{{ switchnr }}
+{% else %}
+  vlt_mac: 00:00:00:00:00:{{ switchnr }}
+{% endif %}
+{% endif %}
+
+os10_xstp:
+  enable: true
+  intf:
+{% for hostint in globalarray %}
+    ethernet {{ hostint }}:
+      edge_port: true
+{% endfor %}
+  rstp:
+    bridge_priority: 0
+  type: rstp
+
+os10_vrf:
+  vrfdetails:
+    - vrfname: "{{L3vrf}}"
+      state: present
+{% endif %}
+
+{% if role == 'spine' %}
+os10_xstp:
+  intf: {}
+{% endif %}

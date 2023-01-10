@@ -8,7 +8,7 @@
     - switches
 
   vars:
-    jenkinsgit: https://github.com/plukkie/Jenkins_CICD_Pipeline_OS10_Fabric.git
+    jenkinsgit: https://github.com/plukkie/Jenkins_CICD_Pipeline_OS10_Fabric_Laptop.git
     jenkinsdir: ./jenkinsgit
     settingsfile: settings.json
     host_vars_dir: host_vars

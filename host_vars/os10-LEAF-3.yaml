@@ -130,7 +130,7 @@ os10_interface:
     ip_and_mask: 10.0.2.3/32
   loopback 1:
     admin: up
-    ip_and_mask: 10.10.10.3
+    ip_and_mask: 10.10.10.3/32
   ethernet 1/1/5:
     admin: up
     desc: to host 1

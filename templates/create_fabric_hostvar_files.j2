@@ -265,7 +265,7 @@ os10_interface:
 {% if role == 'leaf' %}
   loopback 1:
     admin: up
-    ip_and_mask: {{ vtepnet }}{{ vtep }}
+    ip_and_mask: {{ vtepnet }}{{ vtep }}/32
 {% endif -%}
 
 {% if role == 'leaf' and hostcount > 0 %}

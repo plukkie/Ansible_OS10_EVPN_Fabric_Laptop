@@ -79,19 +79,6 @@ interface Vlan 1020
 interface Vlan 4000
  mtu 9216
 !
-vlt-domain 12
- backup destination 10.204.11.139
- discovery-interface ethernet1/1/9
- discovery-interface ethernet1/1/10
- discovery-interface ethernet1/1/11
- discovery-interface ethernet1/1/12
- peer-routing
- vlt-mac 00:00:00:00:00:01
-!
-
-!
-
-!
 uplink-state-group 1
  name "Virtual-switch-fail-over"
  enable

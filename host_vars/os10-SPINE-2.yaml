@@ -36,7 +36,7 @@ os10_bgp:
     admin: up
     adv_interval: 1
     fall_over: present
-    ip: 10.0.2.1
+    ip: 10.99.99.1
     name: spine 1 Overlay
     peergroup: spine-leaf
     remote_asn: 64625
@@ -67,7 +67,7 @@ os10_bgp:
     admin: up
     adv_interval: 1
     fall_over: present
-    ip: 10.0.2.2
+    ip: 10.99.99.2
     name: spine 2 Overlay
     peergroup: spine-leaf
     remote_asn: 64625
@@ -98,7 +98,7 @@ os10_bgp:
     admin: up
     adv_interval: 1
     fall_over: present
-    ip: 10.0.2.3
+    ip: 10.99.99.3
     name: spine 3 Overlay
     peergroup: spine-leaf
     remote_asn: 64626
@@ -129,7 +129,7 @@ os10_bgp:
     admin: up
     adv_interval: 1
     fall_over: present
-    ip: 10.0.2.4
+    ip: 10.99.99.4
     name: spine 4 Overlay
     peergroup: spine-leaf
     remote_asn: 64626
@@ -148,7 +148,7 @@ os10_bgp:
   - address_type: ipv4
     route_map_name: spine-leaf
     route_type: connected
-  router-id: 10.0.1.2
+  router-id: 10.199.199.2
 
 os10_interface:
   ethernet 1/1/1: 
@@ -177,7 +177,7 @@ os10_interface:
     ip_and_mask: 192.168.1.14/31
   loopback 0:
     admin: up
-    ip_and_mask: 10.0.1.2/32
+    ip_and_mask: 10.199.199.2/32
 
 os10_lldp:
   enable: true

@@ -252,7 +252,7 @@ os10_interface:
 {% endif -%}
 
 {% if role == 'leaf' %}
-  virtual-network 10{{ mgtvlan }}:
+  virtual-network {{ mgtvlan }}:
     vrf: {{ L3vrf }}
     ip_and_mask: {{ mgtnet }}.{{ switchnr }}/{{ mgtmask }}
     virtual_gateway_ip: "{{ mgtnet }}.{{ mgtgw }}"

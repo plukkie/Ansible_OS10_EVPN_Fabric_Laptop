@@ -144,7 +144,7 @@ os10_interface:
     admin: up
     switchport: false
     desc: VLT-interlink to leaf 2
-  virtual-network 999999:
+  virtual-network 10999:
     vrf: Vrf1
     ip_and_mask: 172.16.0.1/24
     virtual_gateway_ip: "172.16.0.254"

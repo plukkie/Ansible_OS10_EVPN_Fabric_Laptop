@@ -33,6 +33,7 @@
 {% set firstpeerasnr = conf['fabric']['spine']['as']|int %}
 {% set firstpeerridarray = conf['fabric']['spine']['routerid'].split('.') %}
 {% set firstborderpeer = borderiparray[3]|int+1+(switchnr-1)*bordercount*2 %}
+{% set mystartintip = interlinkiparray[3]|int %}
 {% elif 'spine' in inventory_hostname|lower %}
 {% set role = 'spine' %}
 {% set peerrole = 'spine' %}
@@ -42,6 +43,7 @@
 {% set firstbgppeer = ptp[3]|int+(switchnr-1)*peercount*2 %}
 {% set firstpeerasnr = conf['fabric']['leaf']['as']|int %}
 {% set firstpeerridarray = conf['fabric']['leaf']['routerid'].split('.') %}
+{% set mystartintip = interlinkiparray[3]|int+1 %}
 {% endif %}
 
 {% if 'vtepip' in conf['fabric'][role] %}
@@ -193,7 +195,7 @@ os10_bgp:
 {% set port = conf['gns3']['nodesdata']['templates'][role]['interlinks']['port']|int %}
 {% set pstep = conf['gns3']['nodesdata']['templates'][role]['interlinks']['portstep']|int %}
 {{ global.update ( { 'int' : adapter } ) -}}
-{{ global.update ( { 'intip' : interlinkiparray[3]|int + (switchnr-1)*2*peercount } ) -}}
+{{ global.update ( { 'intip' : mystartintip + (switchnr-1)*2*peercount } ) -}}
 
 os10_interface:
 {% for x in range(peercount) %}

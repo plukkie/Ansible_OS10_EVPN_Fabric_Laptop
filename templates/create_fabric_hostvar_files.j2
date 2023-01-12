@@ -204,10 +204,10 @@ os10_interface:
     switchport: false
 {% if role == 'leaf' %}
     desc: interlink to spine {{ x+1 }}
-{% set intshift = spinecount*2 %}
+{% set intshift = 2 %}
 {% else %}
     desc: interlink to leaf {{ x+1 }}
-{% set intshift = 2 %}
+{% set intshift = spinecount*2 %}
 {% endif %}
     mtu: 9216
     ip_and_mask: {{ interlinknet }}.{{ global.intip }}/31

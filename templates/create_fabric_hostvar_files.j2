@@ -29,21 +29,21 @@
 {% set nameprefix = conf['fabric'][role]['nameprefix'] %}
 {% set switchnr = inventory_hostname[nameprefix|length:]|int %}
 {% set peercount = spinecount %}
-{% set firstbgppeer = ptp[3]|int+1+(switchnr-1)*peercount*2 %}
 {% set firstpeerasnr = conf['fabric']['spine']['as']|int %}
 {% set firstpeerridarray = conf['fabric']['spine']['routerid'].split('.') %}
 {% set firstborderpeer = borderiparray[3]|int+1+(switchnr-1)*bordercount*2 %}
 {% set mystartintip = interlinkiparray[3]|int %}
+{% set firstbgppeer = (interlinkiparray[3]|int + 1 + (switchnr-1)*spinecount*leafcount)|int %}
 {% elif 'spine' in inventory_hostname|lower %}
 {% set role = 'spine' %}
 {% set peerrole = 'spine' %}
 {% set nameprefix = conf['fabric'][role]['nameprefix'] %}
 {% set switchnr = inventory_hostname[nameprefix|length:]|int %}
 {% set peercount = leafcount %}
-{% set firstbgppeer = ptp[3]|int+(switchnr-1)*peercount*2 %}
 {% set firstpeerasnr = conf['fabric']['leaf']['as']|int %}
 {% set firstpeerridarray = conf['fabric']['leaf']['routerid'].split('.') %}
 {% set mystartintip = interlinkiparray[3]|int+1 %}
+{% set firstbgppeer = interlinkiparray[3]|int + (switchnr-1)*2 %}
 {% endif %}
 
 {% if 'vtepip' in conf['fabric'][role] %}
@@ -91,6 +91,8 @@
 {% endif %}
 {% set vltiip = btbarray[0]+'.'+btbarray[1]+'.'+btbarray[2]+'.'+(switchnr-1)|string %}
 
+{{ global.update ( { 'bgppeerip' : firstbgppeer } ) -}}
+
 hostname: {{ inventory_hostname }}
 
 os10_bgp:
@@ -115,18 +117,20 @@ os10_bgp:
   - address_family:
     - type: ipv4
 {% if role == 'leaf' %}
+{% set bgppeeripshift = 2 %}
       allow_as_in: 1
 {% endif %}
     admin: up
     adv_interval: 1
     fall_over: present
-    ip: {{ptpnet}}.{{firstbgppeer+2*cnt}}
+    ip: {{ptpnet}}.{{global.bgppeerip}}
     name: {{ peerrole }} {{ cnt+1 }} Underlay
     peergroup: spine-leaf
     timer: 3 9
     type: ipv4
     remote_asn: {{ peerasn }}
 {% if role == 'spine' %}
+{% set bgppeeripshift = spinecount*2 %}
     sender_loop_detect: false
 {% endif %}
   - address_family:
@@ -151,6 +155,7 @@ os10_bgp:
     src_loopback: 0
     timer: 3 9
     type: ipv4
+{{ global.update ( { 'bgppeerip' : global.bgppeerip|int + bgppeeripshift } ) -}}
 {% endfor %}
   - admin: up
     ip: {{ bgpbtbip }}

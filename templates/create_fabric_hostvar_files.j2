@@ -33,7 +33,7 @@
 {% set firstpeerridarray = conf['fabric']['spine']['routerid'].split('.') %}
 {% set firstborderpeer = borderiparray[3]|int+1+(switchnr-1)*bordercount*2 %}
 {% set mystartintip = interlinkiparray[3]|int %}
-{% set firstbgppeer = (interlinkiparray[3]|int + 1 + (switchnr-1)*spinecount*leafcount)|int %}
+{% set firstbgppeer = interlinkiparray[3]|int + 1 + (switchnr-1)*spinecount*2 %}
 {% elif 'spine' in inventory_hostname|lower %}
 {% set role = 'spine' %}
 {% set peerrole = 'spine' %}

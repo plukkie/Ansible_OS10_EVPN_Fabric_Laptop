@@ -22,7 +22,7 @@ os10_bgp:
     admin: up
     adv_interval: 1
     fall_over: present
-    ip: 192.168.1.9
+    ip: 192.168.1.5
     name: spine 1 Underlay
     peergroup: spine-leaf
     timer: 3 9
@@ -54,7 +54,7 @@ os10_bgp:
     admin: up
     adv_interval: 1
     fall_over: present
-    ip: 192.168.1.11
+    ip: 192.168.1.7
     name: spine 2 Underlay
     peergroup: spine-leaf
     timer: 3 9

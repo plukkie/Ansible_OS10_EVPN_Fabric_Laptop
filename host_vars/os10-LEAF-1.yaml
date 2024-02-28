@@ -22,7 +22,7 @@ os10_bgp:
     admin: up
     adv_interval: 1
     fall_over: present
-    ip: 192.168.1.1
+    ip: 192.168.123.1
     name: spine 1 Underlay
     peergroup: spine-leaf
     timer: 3 9
@@ -54,7 +54,7 @@ os10_bgp:
     admin: up
     adv_interval: 1
     fall_over: present
-    ip: 192.168.1.3
+    ip: 192.168.123.3
     name: spine 2 Underlay
     peergroup: spine-leaf
     timer: 3 9
@@ -115,13 +115,13 @@ os10_interface:
     switchport: false
     desc: interlink to spine 1
     mtu: 9216
-    ip_and_mask: 192.168.1.0/31
+    ip_and_mask: 192.168.123.0/31
   ethernet 1/1/2: 
     admin: up
     switchport: false
     desc: interlink to spine 2
     mtu: 9216
-    ip_and_mask: 192.168.1.2/31
+    ip_and_mask: 192.168.123.2/31
   ethernet 1/1/3:
     admin: up
     switchport: false
